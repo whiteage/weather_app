@@ -54,41 +54,104 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import android.Manifest
+import android.app.Activity
 import android.content.ContentValues.TAG
 import android.content.Context.LOCATION_SERVICE
+import android.location.Address
 import android.location.LocationListener
 import android.location.LocationManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat.getSystemService
 import java.io.IOException
 
 const val API_KEY = "205d318c4b0644489dd133645251203"
-
-
+var city22 = ""
 @Composable
 @Preview(showBackground = true)
 fun MainScreen() {
 
-
-
-    val state = remember{ mutableStateOf("")}
+    var parsedInfo = ParseTime()
+    val state = remember {
+        mutableStateOf(
+            WeatherResponse(
+                Location("", "", "", 0.0, 0.0, "", 0, ""),
+                Current(
+                    0,
+                    "",
+                    0.0,
+                    0.0,
+                    0,
+                    Condition("", "", 0),
+                    0.0,
+                    0.0,
+                    0,
+                    "",
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0,
+                    0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                ),
+                Forecast(listOf())
+            )
+        )
+    }
     val context = LocalContext.current
-    val city : String = "Kaliningrad"
+    var temp = emptyList<Double>()
+    var src = emptyList<String>()
+    RequestLocationPermission(context)
+
+    var forecastday = emptyList<String>()
+    var currentTemp = 0.0
+    var currentWeath = ""
 
 
-    getResultForDay(city, state, context)
 
 
-    val dataList = state.value.split(", ")
+    myCoord(context)
+    parsedInfo.parse(city22, state, context, API_KEY)
+    if (state.value.forecast.forecastday.size != 0) {
+        forecastday = state.value.forecast.forecastday[0].hour.map { it.time }
+        temp = state.value.forecast.forecastday[0].hour.map { it.temp_c}
+        src = state.value.forecast.forecastday[0].hour.map { it.condition.icon   }
+
+
+        currentTemp = state.value.current.temp_c
+        currentWeath = state.value.current.condition.text
+        Log.d("currentWeath", "${state.value.forecast}")
+
+    }
 
 
 
-    Image(painter = painterResource(id = R.drawable.sky),
+
+    Image(
+        painter = painterResource(id = R.drawable.sky),
         contentDescription = null,
         modifier = Modifier
             .fillMaxSize()
             .alpha(0.4f),
-        contentScale = ContentScale.Crop)
-    Column(modifier = Modifier
-        .fillMaxSize()) {
+        contentScale = ContentScale.Crop
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
 
         Card(
             modifier = Modifier
@@ -104,23 +167,29 @@ fun MainScreen() {
 
 
         }
-        Box(modifier = Modifier.fillMaxWidth().background(Color.Transparent), contentAlignment = Alignment.Center){
-            Text(modifier = Modifier.padding(top = 40.dp),
-                text = "$city",
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                modifier = Modifier.padding(top = 40.dp),
+                text = "$city22",
                 style = TextStyle(fontSize = 18.sp, color = Color.Blue)
-
 
 
             )
 
-            Text(modifier = Modifier.padding(top = 110.dp),
-                text = if (dataList.size > 1) "${dataList[0]}C" else "", // Добавлена проверка размера
+            Text(
+                modifier = Modifier.padding(top = 110.dp),
+                text = "$currentTemp С",
                 style = TextStyle(fontSize = 50.sp, color = Color.Blue)
             )
 
             Text(
                 modifier = Modifier.padding(top = 170.dp),
-                text = if (dataList.size > 1) "${dataList[1]}" else "", // Добавлена проверка размера
+                text = "$currentWeath", // Добавлена проверка размера
                 style = TextStyle(fontSize = 18.sp, color = Color.Blue)
             )
 
@@ -129,7 +198,7 @@ fun MainScreen() {
         Spacer(modifier = Modifier.weight(0.25f))
 
 
-        Box(modifier = Modifier.weight(0.4f)) {
+        Box(modifier = Modifier.weight(0.2f)) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)
@@ -138,98 +207,99 @@ fun MainScreen() {
                     val xdd: MutableList<WeatherCard> = mutableListOf()
                     val currentTime = LocalTime.now()
                     val formattedTime = currentTime.format(DateTimeFormatter.ofPattern("HH"))
-
-                    val dataList = state.value.split(", ")
-
-                    Log.d("stateeeeee", "${dataList}")
-                    for(i in formattedTime.toInt()+2 until dataList.size ){
-                        val tempAtMidnight =  dataList[i].split("+")[1]
-                        val timee =  dataList[i].split("+")[0]
-                        val icon = dataList[i].split("+")[2].replace("]", "")
-                        Log.e("temp", "$tempAtMidnight")
-                        Log.e("timee", "$timee")
-                        Log.e("icon", "$icon")
-                        xdd.add(
-                            WeatherCard(
-                                "",
-                                "${timee}",
-                                "${tempAtMidnight}С",
-                                "http:$icon"
-                            )
-                        )
-                    }
-                    if(xdd.size < 9){
-                        repeat(9-xdd.size){
+                    if(forecastday.size > 0) {
+                        for (i in formattedTime.toInt() until 24) {
                             xdd.add(
                                 WeatherCard(
                                     "",
-                                    "",
-                                    "",
-                                    ""
+                                    "${forecastday[i].split(" ")[1]}",
+                                    "${temp[i]}С",
+                                    "http:${src[i]}"
                                 )
                             )
                         }
-                    }
+                        if (xdd.size < 7){
+                            repeat(7-xdd.size){
+                            xdd.add(WeatherCard(
+                                "",
+                                "DASD",
+                                "ASDSA",
+                                "SADSA"
+                            ))}
+                        }
                         itemsIndexed(xdd) { _, item ->
                             TempCard(item = item)
+                        }
                     }
                 }
             }
         }
+
+
     }
 }
 
+fun myCoord(context: Context) {
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    val provider = LocationManager.GPS_PROVIDER
 
-fun getResultForDay(city : String, state: MutableState<String>, context : Context){
-    val url = "http://api.weatherapi.com/v1/forecast.json" + "?key=$API_KEY&" + "q=$city" + "&aqi=no"
-    Log.e("DASDASDASDS", "$city")
+    if (ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    ) {
+        val loc = locationManager.getLastKnownLocation(provider)
+        loc?.let { location ->
 
-    var resultList = mutableListOf<String>()
-
-
-    val queue = Volley.newRequestQueue(context)
-    val stringRequest = StringRequest(
-        Request.Method.GET,
-        url,
-        {
-            response ->
-            Log.d("API_RESPONSE", response)
-            val obj = JSONObject(response)
-
-            val nowInfo = obj
-                .getJSONObject("current")
-
-            val currentTemp = nowInfo.getString("temp_c")
-            val desc = nowInfo.getJSONObject("condition").getString("text")
-            Log.d("API_RESPONSE2", desc)
-
-            val hoursArray = obj
-                .getJSONObject("forecast")
-                .getJSONArray("forecastday")
-                .getJSONObject(0)
-                .getJSONArray("hour")
-
-            for (i in 0 until hoursArray.length()) {
-                val icon = hoursArray.getJSONObject(i).getJSONObject("condition").getString("icon")
-                val tempC = hoursArray.getJSONObject(i).getString("temp_c")
-                val hourC = hoursArray.getJSONObject(i).getString("time").split(' ')[1]
-                Log.e("icon", "$icon")
-                resultList.add("$hourC+$tempC+$icon")
-
+            val longtitude = location.longitude
+            val latitude = location.latitude
+            Log.d("Location", "Lat: $latitude, Lon: $longtitude")
+            val geocoder = Geocoder(context, Locale.getDefault())
+            val addresses: List<Address>? = geocoder.getFromLocation(latitude, longtitude, 1)
+            if (!addresses.isNullOrEmpty()) {
+                city22 = addresses[0].locality
+                Log.d("Location", "City: $city22")
             }
 
-            Log.d("state", "$resultList")
-            state.value = "$currentTemp, $desc, $resultList"
-        },
-        {
-            error ->
-            Log.e("PIZDA", "Error occurred: ${error.message}")
+        } ?: run {
+            // Если loc равно null
+            Log.d("Location", "LocationZZZZ")
         }
-    )
-    Log.d("API_REQUEST", "Request is being added to the queue")
 
-    queue.add(stringRequest)
+
+    } else {
+        Log.d("Location", "Location not available")
+        ActivityCompat.requestPermissions(
+            context as Activity,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            100
+        )
+    }
 }
+@Composable
+fun RequestLocationPermission(context: Context) {
 
+    val activity = context as? Activity
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("Permission", "Доступ к локации разрешён")
+        } else {
+            Log.d("Permission", "Доступ к локации запрещён")
+        }
+    }
 
+    LaunchedEffect(Unit) {
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            Log.d("Permission", "Разрешение уже есть")
+        }
+    }
+}
