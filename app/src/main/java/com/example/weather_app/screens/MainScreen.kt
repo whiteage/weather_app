@@ -62,16 +62,24 @@ import android.location.LocationListener
 import android.location.LocationManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.SideEffect
 import androidx.core.content.ContextCompat.getSystemService
 import java.io.IOException
 
-const val API_KEY = "205d318c4b0644489dd133645251203"
+const val API_KEY = "9a1dcfe02a1c42adb4a95917252703"
 var city22 = ""
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 @Preview(showBackground = true)
 fun MainScreen() {
-
     var parsedInfo = ParseTime()
+    val citi = remember { mutableStateOf("") }
+    val perm = remember { mutableStateOf("") }
     val state = remember {
         mutableStateOf(
             WeatherResponse(
@@ -114,7 +122,6 @@ fun MainScreen() {
     val context = LocalContext.current
     var temp = emptyList<Double>()
     var src = emptyList<String>()
-    RequestLocationPermission(context)
 
     var forecastday = emptyList<String>()
     var currentTemp = 0.0
@@ -123,12 +130,11 @@ fun MainScreen() {
 
 
 
-    myCoord(context)
-    parsedInfo.parse(city22, state, context, API_KEY)
+
     if (state.value.forecast.forecastday.size != 0) {
         forecastday = state.value.forecast.forecastday[0].hour.map { it.time }
-        temp = state.value.forecast.forecastday[0].hour.map { it.temp_c}
-        src = state.value.forecast.forecastday[0].hour.map { it.condition.icon   }
+        temp = state.value.forecast.forecastday[0].hour.map { it.temp_c }
+        src = state.value.forecast.forecastday[0].hour.map { it.condition.icon }
 
 
         currentTemp = state.value.current.temp_c
@@ -136,110 +142,134 @@ fun MainScreen() {
         Log.d("currentWeath", "${state.value.forecast}")
 
     }
+    RequestLocationPermission(context, perm)
+    myCoord(context, citi)
 
+    LaunchedEffect(perm.value) {
+        if (perm.value == "granted") {
+            Log.d("ZZZZZ", "ZAPUSK ")
+            parsedInfo.parse(citi.value, state, context, API_KEY)
+        }
+    }
 
+    val xdd: MutableList<WeatherCard> = mutableListOf()
+    val pageList = mutableListOf("Moscow", "Novosibirsk", "Kaliningrad")
+    val pagerState = rememberPagerState(pageCount = {
+        3
+    })
 
+    Box(modifier = Modifier.fillMaxSize()) {
+    HorizontalPager(
+        beyondBoundsPageCount = 1,
+        state = pagerState,
+        key = {pageList[it]}
 
-    Image(
-        painter = painterResource(id = R.drawable.sky),
-        contentDescription = null,
-        modifier = Modifier
-            .fillMaxSize()
-            .alpha(0.4f),
-        contentScale = ContentScale.Crop
-    )
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
+        ) { page ->
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(color = Bluegray),
-            shape = RoundedCornerShape(10.dp)
-        ) {
+            Image(
+
+                painter = painterResource(id = R.drawable.sky),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.4f),
+                contentScale = ContentScale.Crop
+            )
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxSize()
             ) {
-            }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(color = Bluegray),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                    }
 
 
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.Transparent),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                modifier = Modifier.padding(top = 40.dp),
-                text = "$city22",
-                style = TextStyle(fontSize = 18.sp, color = Color.Blue)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Transparent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        modifier = Modifier.padding(top = 40.dp),
+                        text = "$city22",
+                        style = TextStyle(fontSize = 18.sp, color = Color.Blue)
 
 
-            )
+                    )
 
-            Text(
-                modifier = Modifier.padding(top = 110.dp),
-                text = "$currentTemp С",
-                style = TextStyle(fontSize = 50.sp, color = Color.Blue)
-            )
+                    Text(
+                        modifier = Modifier.padding(top = 110.dp),
+                        text = "${pageList[page]} С",
+                        style = TextStyle(fontSize = 50.sp, color = Color.Blue)
+                    )
 
-            Text(
-                modifier = Modifier.padding(top = 170.dp),
-                text = "$currentWeath", // Добавлена проверка размера
-                style = TextStyle(fontSize = 18.sp, color = Color.Blue)
-            )
+                    Text(
+                        modifier = Modifier.padding(top = 170.dp),
+                        text = "$currentWeath", // Добавлена проверка размера
+                        style = TextStyle(fontSize = 18.sp, color = Color.Blue)
+                    )
 
-        }
+                }
 
-        Spacer(modifier = Modifier.weight(0.25f))
+                Spacer(modifier = Modifier.weight(0.25f))
 
 
-        Box(modifier = Modifier.weight(0.2f)) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                LazyRow(modifier = Modifier.fillMaxWidth()) {
-                    val xdd: MutableList<WeatherCard> = mutableListOf()
-                    val currentTime = LocalTime.now()
-                    val formattedTime = currentTime.format(DateTimeFormatter.ofPattern("HH"))
-                    if(forecastday.size > 0) {
-                        for (i in formattedTime.toInt() until 24) {
-                            xdd.add(
-                                WeatherCard(
-                                    "",
-                                    "${forecastday[i].split(" ")[1]}",
-                                    "${temp[i]}С",
-                                    "http:${src[i]}"
-                                )
-                            )
-                        }
-                        if (xdd.size < 7){
-                            repeat(7-xdd.size){
-                            xdd.add(WeatherCard(
-                                "",
-                                "DASD",
-                                "ASDSA",
-                                "SADSA"
-                            ))}
-                        }
-                        itemsIndexed(xdd) { _, item ->
-                            TempCard(item = item)
+                Box(modifier = Modifier.weight(0.2f)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        LazyRow(modifier = Modifier.fillMaxWidth()) {
+                            val currentTime = LocalTime.now()
+                            val formattedTime =
+                                currentTime.format(DateTimeFormatter.ofPattern("HH"))
+                            if (forecastday.size > 0) {
+                                for (i in formattedTime.toInt() until 24) {
+                                    xdd.add(
+                                        WeatherCard(
+                                            "",
+                                            "${forecastday[i].split(" ")[1]}",
+                                            "${temp[i]}С",
+                                            "http:${src[i]}"
+                                        )
+                                    )
+                                }
+                                if (xdd.size < 7) {
+                                    repeat(7 - xdd.size) {
+                                        xdd.add(
+                                            WeatherCard(
+                                                "",
+                                                "",
+                                                "",
+                                                ""
+                                            )
+                                        )
+                                    }
+                                }
+                                itemsIndexed(xdd) { _, item ->
+                                    TempCard(item = item)
+                                }
+                            }
+
                         }
                     }
                 }
             }
         }
-
-
     }
 }
-
-fun myCoord(context: Context) {
+fun myCoord(context: Context, citi: MutableState<String>) {
     val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     val provider = LocationManager.GPS_PROVIDER
 
@@ -253,12 +283,13 @@ fun myCoord(context: Context) {
 
             val longtitude = location.longitude
             val latitude = location.latitude
-            Log.d("Location", "Lat: $latitude, Lon: $longtitude")
+
             val geocoder = Geocoder(context, Locale.getDefault())
             val addresses: List<Address>? = geocoder.getFromLocation(latitude, longtitude, 1)
+
             if (!addresses.isNullOrEmpty()) {
                 city22 = addresses[0].locality
-                Log.d("Location", "City: $city22")
+                citi.value = city22
             }
 
         } ?: run {
@@ -268,7 +299,7 @@ fun myCoord(context: Context) {
 
 
     } else {
-        Log.d("Location", "Location not available")
+
         ActivityCompat.requestPermissions(
             context as Activity,
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
@@ -276,30 +307,36 @@ fun myCoord(context: Context) {
         )
     }
 }
+var x = 0
 @Composable
-fun RequestLocationPermission(context: Context) {
+fun RequestLocationPermission(context: Context, permission: MutableState<String>) {
 
-    val activity = context as? Activity
+
+
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (isGranted) {
-            Log.d("Permission", "Доступ к локации разрешён")
-        } else {
-            Log.d("Permission", "Доступ к локации запрещён")
+        if(isGranted){
+            permission.value = "granted"
+
+        }
+        else{
+            permission.value = "denied" + x.toString()
+
+        }
+
+    }
+    if(permission.value != "granted") {
+        Text(text = "НЕТ ДОСТУПА К МЕСТОПОЛОЖЕНИЮ!!!!!!!!!", modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 40.dp), style = TextStyle(fontSize = 14.sp))
+        x++
+        Log.e("permission.value", "${permission.value}")
+        LaunchedEffect(permission.value) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        } else {
-            Log.d("Permission", "Разрешение уже есть")
-        }
-    }
 }
+
