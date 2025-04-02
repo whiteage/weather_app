@@ -158,14 +158,6 @@ fun MainScreen() {
         3
     })
 
-    Box(modifier = Modifier.fillMaxSize()) {
-    HorizontalPager(
-        beyondBoundsPageCount = 1,
-        state = pagerState,
-        key = {pageList[it]}
-
-        ) { page ->
-
             Image(
 
                 painter = painterResource(id = R.drawable.sky),
@@ -210,7 +202,7 @@ fun MainScreen() {
 
                     Text(
                         modifier = Modifier.padding(top = 110.dp),
-                        text = "${pageList[page]} С",
+                        text = "${currentTemp} С",
                         style = TextStyle(fontSize = 50.sp, color = Color.Blue)
                     )
 
@@ -265,10 +257,10 @@ fun MainScreen() {
                         }
                     }
                 }
-            }
+
         }
     }
-}
+
 fun myCoord(context: Context, citi: MutableState<String>) {
     val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     val provider = LocationManager.GPS_PROVIDER
