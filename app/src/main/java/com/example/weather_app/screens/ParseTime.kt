@@ -15,7 +15,7 @@ import retrofit2.create
 
 
 class ParseTime() {
-    fun parse(city : String, state: MutableState<WeatherResponse>, context : Context, apiKey: String){
+    fun parse(city : String, state: MutableState<List<WeatherResponse>>, context : Context, apiKey: String){
         Log.d("city", "$city")
         val retrofit2 = Retrofit.Builder()
                 .addConverterFactory(GsonConverterFactory.create())
@@ -24,16 +24,14 @@ class ParseTime() {
 
         val apiService = retrofit2.create(RetrofitInterface::class.java)
         CoroutineScope(Dispatchers.IO).launch {
-            val parsedInfo =  apiService.getInfo(city, apiKey)
+            val parsedInfo = apiService.getInfo(city, apiKey)
+            if (parsedInfo.location.name.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    state.value += parsedInfo
+                }
 
-            withContext(Dispatchers.Main) {
-                state.value = parsedInfo
+
             }
         }
-
-
-    }
-
-
-
+}
 }

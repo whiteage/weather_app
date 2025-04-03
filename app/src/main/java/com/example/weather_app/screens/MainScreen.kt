@@ -67,8 +67,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
 import androidx.core.content.ContextCompat.getSystemService
 import java.io.IOException
+import kotlin.concurrent.thread
+import kotlin.math.abs
 
 const val API_KEY = "9a1dcfe02a1c42adb4a95917252703"
 var city22 = ""
@@ -82,6 +85,7 @@ fun MainScreen() {
     val perm = remember { mutableStateOf("") }
     val state = remember {
         mutableStateOf(
+            listOf(
             WeatherResponse(
                 Location("", "", "", 0.0, 0.0, "", 0, ""),
                 Current(
@@ -118,55 +122,78 @@ fun MainScreen() {
                 Forecast(listOf())
             )
         )
+        )
     }
     val context = LocalContext.current
-    var temp = emptyList<Double>()
-    var src = emptyList<String>()
 
-    var forecastday = emptyList<String>()
-    var currentTemp = 0.0
-    var currentWeath = ""
+    val forecastday = mutableListOf<List<String>>()
+    val temp = mutableListOf<List<Double>>()
+    val src = mutableListOf<List<String>>()
 
-
-
+    var currentTemp = mutableListOf<Double>()
+    var currentWeath = mutableListOf<String>()
 
 
-    if (state.value.forecast.forecastday.size != 0) {
+
+
+
+  /*  if (state.value.forecast.forecastday.size != 0) {
         forecastday = state.value.forecast.forecastday[0].hour.map { it.time }
         temp = state.value.forecast.forecastday[0].hour.map { it.temp_c }
         src = state.value.forecast.forecastday[0].hour.map { it.condition.icon }
 
-
         currentTemp = state.value.current.temp_c
         currentWeath = state.value.current.condition.text
-        Log.d("currentWeath", "${state.value.forecast}")
 
-    }
+    } */
+
     RequestLocationPermission(context, perm)
     myCoord(context, citi)
 
+    val xdd: MutableList<WeatherCard> = mutableListOf()
+    val pageList = mutableListOf("${citi.value}", "Novosibirsk", "Moscow")
+    val pagerState = rememberPagerState(initialPage = 0) { pageList.size }
+
+
     LaunchedEffect(perm.value) {
         if (perm.value == "granted") {
-            Log.d("ZZZZZ", "ZAPUSK ")
-            parsedInfo.parse(citi.value, state, context, API_KEY)
+            for(i in pageList) {
+                parsedInfo.parse(i, state, context, API_KEY)
+            }
         }
     }
 
-    val xdd: MutableList<WeatherCard> = mutableListOf()
-    val pageList = mutableListOf("Moscow", "Novosibirsk", "Kaliningrad")
-    val pagerState = rememberPagerState(pageCount = {
-        3
-    })
+    if(state.value.size > pageList.size) {
+        for (i in 1 until state.value.size) {
+            forecastday.add(state.value[i].forecast.forecastday[0].hour.map { it.time })
+            temp.add(state.value[i].forecast.forecastday[0].hour.map { it.temp_c })
+            src.add(state.value[i].forecast.forecastday[0].hour.map { it.condition.icon })
 
-            Image(
+            currentTemp.add(state.value[i].current.temp_c)
+            currentWeath.add(state.value[i].current.condition.text)
 
-                painter = painterResource(id = R.drawable.sky),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(0.4f),
-                contentScale = ContentScale.Crop
-            )
+        }
+    }
+
+
+
+    Box(modifier = Modifier.fillMaxSize()) {
+    HorizontalPager(
+        beyondBoundsPageCount = 1,
+        state = pagerState,
+
+        ) { page ->
+
+        Log.d("PAGER_DEBUG", "Current page: $page, City: ${pageList[page]}, ${state.value}")
+        Image(
+            painter = painterResource(id = R.drawable.sky),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(0.4f),
+            contentScale = ContentScale.Crop
+        )
+        if(state.value.size > pageList.size) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -194,7 +221,7 @@ fun MainScreen() {
                 ) {
                     Text(
                         modifier = Modifier.padding(top = 40.dp),
-                        text = "$city22",
+                        text = pageList[page],
                         style = TextStyle(fontSize = 18.sp, color = Color.Blue)
 
 
@@ -202,13 +229,13 @@ fun MainScreen() {
 
                     Text(
                         modifier = Modifier.padding(top = 110.dp),
-                        text = "${currentTemp} С",
+                        text = "${currentTemp[page]} С",
                         style = TextStyle(fontSize = 50.sp, color = Color.Blue)
                     )
 
                     Text(
                         modifier = Modifier.padding(top = 170.dp),
-                        text = "$currentWeath", // Добавлена проверка размера
+                        text = "${currentWeath[page]}", // Добавлена проверка размера
                         style = TextStyle(fontSize = 18.sp, color = Color.Blue)
                     )
 
@@ -231,9 +258,9 @@ fun MainScreen() {
                                     xdd.add(
                                         WeatherCard(
                                             "",
-                                            "${forecastday[i].split(" ")[1]}",
-                                            "${temp[i]}С",
-                                            "http:${src[i]}"
+                                            "${forecastday[page][i].split(" ")[1]}",
+                                            "${temp[page][i]}С",
+                                            "http:${src[page][i]}"
                                         )
                                     )
                                 }
@@ -258,9 +285,11 @@ fun MainScreen() {
                     }
                 }
 
+            }
         }
     }
-
+    }
+}
 fun myCoord(context: Context, citi: MutableState<String>) {
     val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     val provider = LocationManager.GPS_PROVIDER
